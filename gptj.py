@@ -253,7 +253,7 @@ def load_quant(model, checkpoint, wbits, groupsize):
 def gptj_multigpu(model, gpus):
     model.model.embed_tokens = model.model.embed_tokens.to(gpus[0])
     if hasattr(model.model, 'norm') and model.model.norm:
-        model.model.norm = model.model.norm.to(gpu[-1])
+        model.model.norm = model.model.norm.to(gpus[-1])
     import copy
     model.lm_head = copy.deepcopy(model.lm_head).to(gpus[-1])
 
@@ -318,16 +318,16 @@ def benchmark(model, input_ids, check=False):
                 attention_mask=attention_mask[:, :(i + 1)].reshape((1, -1))
             )
             sync()
-            times.append(time.time() - tick)
-            print(i, times[-1])
-            max_memory = max(max_memory, torch, cuda.memory_allocated() / 1024 /1024)
+            time.append(time.time() - tick)
+            print(i, time[-1])
+            max_memory = max(max_memory, torch, torch.cuda.memory_allocated() / 1024 /1024)
             if check and i != input_ids.numel() - 1:
                 tot += loss(out.logits[0].to(DEV), input_ids[:, (i + 1)].to(DEV)).float()
             cache['past'] = list(out.past_keys_values)
             del out
         sync()
         import numpy as np
-        print('Median:', np.median(times))
+        print('Median:', np.median(time))
         if check:
             print('PPL:', torch.exp(tot / (input_ids.numel() - 1)).item())
             print('max memory(MiB):',max_memory)
